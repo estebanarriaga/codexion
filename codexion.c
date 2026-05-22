@@ -33,6 +33,7 @@ typedef struct s_sim	t_sim;
 
 typedef struct s_params
 {
+	char	*scheduler;
 	int		number_of_coders;
 	int		time_to_burnout;
 	int		time_to_compile;
@@ -40,15 +41,14 @@ typedef struct s_params
 	int		time_to_refactor;
 	int		number_of_compiles_required;
 	int		dongle_cooldown;
-	char	*scheduler;
 }	t_params;
 
 typedef struct s_request
 {
-	int		coder_id;
 	long	arrival_ms;
 	long	deadline_ms;
 	long	sequence;
+	int		coder_id;
 }	t_request;
 
 typedef struct s_heap
@@ -60,18 +60,6 @@ typedef struct s_heap
 
 typedef struct s_coder
 {
-	int				id;
-	t_coder_state	state;
-	int				compile_count;
-	/**
-	 * Absolute timestamp in ms of the last time this coder started compiling.
-	 */
-	long			last_compile_start;
-	/**
-	 * Indexes into sim->dongles; stored to avoid repeating circular math.
-	 */
-	int				left_dongle;
-	int				right_dongle;
 	pthread_t		thread;
 	/**
 	 * Woken after scheduler/resource state changes so this coder can recheck.
@@ -81,6 +69,18 @@ typedef struct s_coder
 	 * Back-reference to shared simulation state used by the thread routine.
 	 */
 	t_sim			*sim;
+	/**
+	 * Absolute timestamp in ms of the last time this coder started compiling.
+	 */
+	long			last_compile_start;
+	int				id;
+	t_coder_state	state;
+	int				compile_count;
+	/**
+	 * Indexes into sim->dongles; stored to avoid repeating circular math.
+	 */
+	int				left_dongle;
+	int				right_dongle;
 }	t_coder;
 
 typedef struct s_dongle
