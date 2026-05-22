@@ -20,7 +20,18 @@ Allowed functions:
 #include <string.h>
 #include <limits.h>
 
-typedef struct t_params
+typedef enum e_coder_state
+{
+	STATE_WAITING,
+	STATE_COMPILING,
+	STATE_DEBUGGING,
+	STATE_REFACTORING,
+	STATE_DONE
+}	t_coder_state;
+
+typedef struct s_sim	t_sim;
+
+typedef struct s_params
 {
 	int		number_of_coders;
 	int		time_to_burnout;
@@ -30,66 +41,95 @@ typedef struct t_params
 	int		number_of_compiles_required;
 	int		dongle_cooldown;
 	char	*scheduler;
-} t_params;
+}	t_params;
 
-// t_coder
-//     id
-//     state (WAITING | COMPILING | DEBUGGING | REFACTORING)
-//     compile_count
-//     last_compile_start
-//     pthread_t thread
-//     pthread_cond_t cond      ← scheduler signals this to wake them
-
-// t_dongle
-//     id
-//     in_use (bool)
-//     cooldown_until (ms)
-
-// t_sim
-//     t_params params
-//     t_coder *coders
-//     t_dongle *dongles
-//     pthread_t scheduler_thread
-//     pthread_t monitor_thread
-//     pthread_mutex_t mutex    ← one global mutex, scheduler owns it
-//     pthread_cond_t sched_cond ← coders signal this to wake scheduler
-//     t_waitqueue queue        ← min-heap ordered by FIFO or EDF | Missing from struct, but can be implemented as a separate data structure in the scheduler thread
-//     pthread_mutex_t log_mutex
-//     int stop
-
-typedef struct t_coder
+typedef struct s_request
 {
-	int	id;
-	int	state;
-	int	compile_count;
-	long	last_compile_start;
-	pthread_t	thread;
+	int		coder_id;
+	long	arrival_ms;
+	long	deadline_ms;
+	long	sequence;
+}	t_request;
+
+typedef struct s_heap
+{
+	t_request	*items;
+	int			size;
+	int			capacity;
+}	t_heap;
+
+typedef struct s_coder
+{
+	int				id;
+	t_coder_state	state;
+	int				compile_count;
+	/**
+	 * Absolute timestamp in ms of the last time this coder started compiling.
+	 */
+	long			last_compile_start;
+	/**
+	 * Indexes into sim->dongles; stored to avoid repeating circular math.
+	 */
+	int				left_dongle;
+	int				right_dongle;
+	pthread_t		thread;
+	/**
+	 * Woken after scheduler/resource state changes so this coder can recheck.
+	 */
 	pthread_cond_t	cond;
-} t_coder;
+	/**
+	 * Back-reference to shared simulation state used by the thread routine.
+	 */
+	t_sim			*sim;
+}	t_coder;
 
-typedef struct t_dongle
+typedef struct s_dongle
 {
-    int	owner_id;
-    int	in_use;
-    long	cooldown_until;
-} t_dongle;
+	int		id;
+	/**
+	 * 0 means unowned; otherwise stores the id of the coder holding it.
+	 */
+	int		owner_id;
+	/**
+	 * Absolute timestamp in ms before which this dongle cannot be granted.
+	 */
+	long	cooldown_until;
+	/**
+	 * Min-heap of waiting requests, ordered by FIFO or EDF comparator.
+	 */
+	t_heap	waiters;
+}	t_dongle;
 
-typedef struct t_sim
+struct s_sim
 {
-    t_params		params;
-    t_coder			*coders;
-    t_dongle		*dongles;
-    pthread_t		scheduler_thread;
-    pthread_t		monitor_thread;
-    pthread_mutex_t	mutex;
-    /**
-     * The `log_mutex` is used to ensure that log messages are not interleaved,
-     * and burnout/state logging also needs coordination with stop.
-     */
-    pthread_mutex_t log_mutex;
-    pthread_cond_t	sched_cond;
-    int				stop;
-} t_sim;
+	t_params		params;
+	t_coder			*coders;
+	t_dongle		*dongles;
+	/**
+	 * Absolute timestamp in ms used as origin for elapsed log timestamps.
+	 */
+	long			start_ms;
+	/**
+	 * Monotonic tie-breaker for requests with equal arrival/deadline.
+	 */
+	long			sequence;
+	pthread_t		scheduler_thread;
+	pthread_t		monitor_thread;
+	/**
+	 * Protects shared simulation truth: coders, dongles, queues, and stop.
+	 */
+	pthread_mutex_t	mutex;
+	/**
+	 * The `log_mutex` is used to ensure that log messages are not interleaved,
+	 * and burnout/state logging also needs coordination with stop.
+	 */
+	pthread_mutex_t	log_mutex;
+	/**
+	 * Broadcast when scheduler-relevant state changes or stop is set.
+	 */
+	pthread_cond_t	sched_cond;
+	int				stop;
+};
 
 static void	print_usage(char *program)
 {
@@ -173,9 +213,7 @@ int main(int argc, char *argv[])
 
 	if (parse_arguments(argc, argv, &params) == -1)
 		return (1);
-    (void)params;
-    for (int i = 0; i <= 7; i++)
-        printf("Parsed argument %d: %d\n", i, *((int *)&params + i));
+	(void)params;
 
 	// Initialize coders, dongles, and other necessary data structures here
 
