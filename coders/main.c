@@ -4,6 +4,7 @@
 int main(int argc, char *argv[])
 {
 	t_params	params;
+	t_sim		sim;
 
 	if (parse_arguments(argc, argv, &params) == -1)
 		return (1);

@@ -5,7 +5,7 @@ CFLAGS = -Wall -Wextra -Werror -pthread
 UNSAFE_FLAGS = -pthread
 RM = rm -f
 
-SRCS = coders/main.c coders/utils.c coders/parse.c
+SRCS = coders/main.c coders/utils.c coders/parse.c coders/initialize.c
 OBJS = $(SRCS:.c=.o)
 
 all: $(NAME)

@@ -138,4 +138,6 @@ int		parse_arguments(int argc, char *argv[], t_params *params);
 
 void    print_usage(char *program);
 
+int   initialize_simulation(t_sim *sim, t_params *params);
+
 #endif
