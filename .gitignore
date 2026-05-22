@@ -1,0 +1,21 @@
+# vscode
+.vscode
+
+# object files
+build
+
+# tests are not submitted
+tests
+
+# Executables
+a.out
+codexion
+
+# Igonre documentation files
+# **/*.md
+
+# Libft
+libftprintf.a
+
+# tmp files
+tmp
