@@ -18,6 +18,57 @@
  * The two condition variables let threads sleep instead of wasting CPU:
  * - not_empty: consumers wait here while the queue has no jobs.
  * - not_full: the producer waits here while the queue is full.
+ * 
+ * The program is a small producer/consumer pthread example.
+ *
+ * It creates:
+ *
+ * - 1 producer thread
+ * - 3 consumer threads
+ * - 1 shared queue
+ * - 1 mutex
+ * - 2 condition variables
+ *
+ * The producer creates numbered jobs from 1 to 12 and puts them into the queue. The consumers take jobs out of the queue and “process” them by printing a message and sleeping briefly.
+ *
+ * The queue can only hold 4 jobs at a time, so synchronization matters.
+ *
+ * The mutex protects the shared queue state:
+ *
+ * pthread_mutex_t mutex;
+ *
+ * Any time a thread reads or modifies head, tail, count, done, or jobs, it first locks the mutex.
+ * This prevents two threads from changing the queue at the same time.
+ *
+ * The condition variables let threads sleep efficiently:
+ *
+ * pthread_cond_t not_empty;
+ * pthread_cond_t not_full;
+ *
+ * not_empty is used by consumers. If the queue is empty, a consumer waits until the producer adds a job.
+ *
+ * not_full is used by the producer. If the queue is full, the producer waits until a consumer removes a job.
+ *
+ * The basic flow is:
+ *
+ * 1. main initializes the queue.
+ * 2. main starts the producer thread.
+ * 3. main starts 3 consumer threads.
+ * 4. The producer adds jobs to the queue.
+ * 5. Consumers remove and process jobs.
+ * 6. When the producer has created all jobs, it marks the queue as done.
+ * 7. Waiting consumers wake up, see there are no more jobs, and exit.
+ * 8. main joins all threads and destroys the mutex/condition variables.
+ *
+ * The important pthread pattern is this:
+ *
+ * while (queue->count == 0 && !queue->done)
+ *     pthread_cond_wait(&queue->not_empty, &queue->mutex);
+ *
+ * A thread waits inside a while, not an if, because waking up does not guarantee the condition is
+ * true. It only means “something may have changed, check again.”
+ *
+ * So the program demonstrates how multiple threads can safely share work using a mutex for protection and condition variables for waiting/waking.
  */
 typedef struct s_queue
 {
