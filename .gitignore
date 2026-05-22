@@ -16,3 +16,6 @@ codexion
 
 # tmp files
 tmp
+
+*/**.o
+*.o
