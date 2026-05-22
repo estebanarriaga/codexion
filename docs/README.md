@@ -1,16 +1,29 @@
 # Codexion Learning Notes
 
-These notes explain the concurrency concepts behind `codexion.subject.pdf`.
-The project is a variant of the classic Dining Philosophers problem: several
-coder threads compete for shared dongles, each compilation needs two dongles,
-released dongles have a cooldown period, and waiting coders must be served by a
-selected scheduler policy.
+Codexion is not mainly about learning the names of pthread functions. It is
+about learning how a program stays correct when several independent executions
+touch the same world at the same time.
 
-The goal of this documentation is not to provide a finished implementation. It
-is meant to help you understand the ideas well enough to design, debug, and
-defend your own code.
+Imagine the simulation as a small laboratory. The coders are active agents. The
+dongles are scarce resources. Time is always advancing. A scheduler decides who
+waits and who moves. A monitor watches whether anyone has waited too long. The
+central question is always the same:
 
-## Suggested Reading Order
+```text
+What facts must remain true while many threads are trying to change them?
+```
+
+That question is the line that holds the whole project together. A mutex, a
+condition variable, a heap, a monitor thread, and a scheduler are not separate
+pieces of trivia. They are tools for preserving shared truths under pressure.
+
+When you read these notes, do not try to memorize every term immediately. Follow
+the progression. First understand the world of the simulation. Then understand
+what a thread is. Then understand why shared memory breaks naive reasoning. Only
+after that do mutexes, condition variables, scheduling, and monitoring become
+natural.
+
+## Reading Path
 
 1. [Project Model](./project-model.md)
 2. [POSIX Threads Syntax](./pthread-syntax.md)
@@ -23,19 +36,34 @@ defend your own code.
 9. [Implementation Checklist](./implementation-checklist.md)
 10. [Real-World Threading Case Studies](./real-world-threading.md)
 
-## Core Ideas In One Page
+The order matters. Each document assumes the previous one has already changed
+how you think about the problem.
 
-- A thread is one independent path of execution inside the same process.
-- All coder threads share the same heap memory, so shared state must be protected.
-- A mutex protects an invariant, not just a variable.
-- A condition variable lets threads sleep until shared state may have changed.
-- `pthread_cond_wait` must always be used with a mutex and a `while` predicate.
-- FIFO scheduling orders requests by arrival time.
-- EDF scheduling orders requests by deadline, here `last_compile_start + time_to_burnout`.
-- A monitor thread should independently detect burnout and stop the simulation.
-- Logs must be serialized with a mutex so lines do not interleave.
+## The One Mental Model
 
-## External References
+In a single-threaded program, you can often read code as a story: line one
+happens, then line two, then line three. In a threaded program, there are
+several stories being written on the same page. Correctness is not guaranteed by
+the order you wrote the lines. Correctness comes from controlling when shared
+facts may be observed and changed.
+
+For Codexion, the important facts are simple to say but difficult to preserve:
+
+```text
+A dongle cannot belong to two coders.
+A coder cannot compile without two dongles.
+A cooling dongle cannot be reused early.
+The scheduler must choose the correct waiter.
+The monitor must notice burnout on time.
+The log must tell one coherent history.
+```
+
+Everything else in the project is machinery to keep those facts true.
+
+## References
+
+Use references after you understand the local problem. Documentation is more
+useful when you already know what question you are asking.
 
 - POSIX threads overview: <https://man7.org/linux/man-pages/man7/pthreads.7.html>
 - `pthread_create`: <https://man7.org/linux/man-pages/man3/pthread_create.3.html>

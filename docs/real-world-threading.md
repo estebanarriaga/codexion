@@ -1,343 +1,283 @@
 # Real-World Threading Case Studies
 
-This file collects real examples of how large projects use threads, processes,
-event loops, schedulers, and queues. The point is not to copy these designs into
-Codexion directly. The point is to learn what engineering decisions teams made
-when concurrency became a central design problem.
+The previous documents stayed inside Codexion. This last one zooms out.
 
-## Go Runtime: Many Goroutines, Fewer OS Threads
+Real software projects do not choose threads because threads are fashionable.
+They choose a concurrency model because some resource is scarce, some work can
+overlap, or some failure must be contained. The lesson is the same one we used
+throughout Codexion:
 
-Go exposes goroutines as lightweight concurrent tasks. Internally, the runtime
-maps them onto operating-system threads using the `G`, `M`, and `P` model:
+```text
+First understand the shared world. Then choose the concurrency shape that keeps
+that world correct and useful.
+```
 
-- `G`: goroutine, the user-level task.
-- `M`: machine, an OS worker thread.
-- `P`: processor, the execution resource required to run Go code.
+The examples below are not templates to copy. They are studies in engineering
+judgment.
 
-The Go runtime source says the scheduler distributes ready goroutines over
-worker threads, and that an `M` needs an associated `P` to execute Go code:
-<https://go.dev/src/runtime/proc.go>
+## Go: Many Tasks, Fewer Operating-System Threads
 
-Important decision:
+Go programmers create goroutines freely. A server may have thousands or millions
+of them over its lifetime. But the Go runtime does not create one operating
+system thread per goroutine. Instead, it multiplexes goroutines onto a smaller
+set of OS threads.
 
-- Go did not create one OS thread per goroutine.
-- It multiplexes many goroutines onto a smaller pool of OS threads.
-- It uses per-`P` run queues instead of one fully centralized queue.
+The runtime source describes the scheduler in terms of `G`, `M`, and `P`:
 
-Why:
+```text
+G: a goroutine, the work to run
+M: an OS thread, the machine that runs work
+P: a processor token needed to execute Go code
+```
 
-- OS threads are expensive compared with goroutines.
-- A single global scheduler queue would create contention.
-- Per-processor queues improve locality and reduce lock pressure.
-- Work stealing lets idle processors take work from busy ones.
+Source: <https://go.dev/src/runtime/proc.go>
 
-Interesting tradeoff:
+The important decision is that Go separates the programmer's idea of
+concurrency from the operating system's idea of threads. A goroutine is cheap
+enough to use for many logical activities. OS threads are more expensive, so the
+runtime schedules many goroutines over fewer threads.
 
-- Distributed scheduler state improves scalability.
-- It also makes global decisions harder, because no one place always has a
-  complete cheap view of all runnable work.
+That creates a scheduler problem. If all runnable goroutines lived behind one
+global lock, the scheduler itself would become a bottleneck. Go therefore uses
+more distributed scheduling structures, including per-processor run queues and
+work stealing.
 
-Connection to Codexion:
+The tradeoff is familiar. Distributed queues reduce contention, but they make
+global knowledge harder. One central queue is easier to understand; many local
+queues scale better.
 
-- Your FIFO/EDF heap is a scheduler queue.
-- If you use one global simulation mutex, the design is simpler but less
-  scalable.
-- If you split queues per dongle, you reduce contention but make global fairness
-  harder.
+Codexion has a smaller version of the same decision. A single global mutex and
+central scheduler are easier to reason about. Per-dongle queues and locks can be
+more parallel, but fairness and correctness become harder to see at once.
 
 Further reading:
 
 - Go runtime scheduler source: <https://go.dev/src/runtime/proc.go>
 - Go scheduler design discussion: <https://groups.google.com/g/golang-dev/c/_H9nXe7jG2U>
-- Go 1.2 scheduler preemption note: <https://go.dev/doc/go1.2#pre_emption_in_the_scheduler>
 - Go diagnostics and scheduler tracing: <https://go.dev/doc/diagnostics>
 
-## NGINX: Event-Driven Workers Instead Of Thread Per Connection
+## NGINX: Many Connections, Few Workers
 
-NGINX uses a master/worker process model. The master reads configuration and
-maintains workers; workers process requests. The number of workers can be fixed
-or auto-adjusted to CPU cores:
-<https://docs.nginx.com/nginx/admin-guide/basic-functionality/runtime-control/>
+A web server spends much of its life waiting. Clients pause, networks delay,
+connections stay open. If a server created one blocking thread for every
+connection, memory and scheduling overhead would grow quickly.
 
-Important decision:
+NGINX chose a different shape. It uses a master process and worker processes.
+Workers handle many connections using event-driven I/O rather than one thread
+per connection. The number of workers can be configured or chosen automatically
+from CPU count.
 
-- NGINX does not use one thread per client connection.
-- It uses worker processes and OS event mechanisms to handle many connections
-  efficiently.
+Source: <https://docs.nginx.com/nginx/admin-guide/basic-functionality/runtime-control/>
 
-Why:
+The scarce resource here is not only CPU. It is also memory, kernel scheduling
+attention, and worker responsiveness. Event-driven workers let one worker track
+many connections because most connections are not actively computing most of the
+time.
 
-- Many web connections spend most time waiting for network I/O.
-- A thread per connection would waste memory and scheduler time.
-- Event-driven workers can keep many sockets active with fewer execution
-  contexts.
+The tradeoff is that a worker must avoid blocking. If one event-driven worker
+blocks on a slow operation, every connection assigned to that worker can suffer.
 
-Interesting tradeoff:
-
-- Event-driven code scales well for I/O-heavy workloads.
-- Blocking inside a worker is dangerous because it can delay many connections
-  handled by that worker.
-
-Connection to Codexion:
-
-- If a Codexion thread sleeps while holding the main mutex, it blocks unrelated
-  progress in the same way a blocking NGINX worker delays many clients.
-- Keep critical sections short.
+Codexion has the same lesson in miniature. If a coder holds the main simulation
+mutex while sleeping through compilation, debugging, or refactoring, it freezes
+unrelated progress. The code is "locked," but the design is wrong. Locks should
+protect decisions, not long passages of time.
 
 Further reading:
 
 - NGINX runtime process control: <https://docs.nginx.com/nginx/admin-guide/basic-functionality/runtime-control/>
 - NGINX architecture overview: <https://blog.nginx.org/blog/inside-nginx-how-we-designed-for-performance-scale>
 
-## PostgreSQL: Process Per Connection
+## PostgreSQL: Isolation Through Processes
 
-PostgreSQL uses a process-per-user client/server model. A supervisor process,
-called the postmaster, listens for incoming connections and spawns a backend
-process for each one. Backends coordinate through semaphores and shared memory:
-<https://www.postgresql.org/docs/18/connect-estab.html>
+PostgreSQL historically uses a process-per-connection model. A supervisor
+process, the postmaster, accepts connections and starts backend processes.
+Backends coordinate where necessary through shared memory and synchronization
+primitives.
 
-Important decision:
+Source: <https://www.postgresql.org/docs/18/connect-estab.html>
 
-- PostgreSQL historically chose processes rather than threads for client
-  sessions.
+This is a different answer to concurrency. Instead of sharing one address space
+between many client sessions, PostgreSQL gives each session a process. Processes
+are heavier than threads, but they provide stronger isolation. A crash in one
+backend is less likely to corrupt another backend's private memory.
 
-Why:
+The engineering choice values robustness and containment. The cost is that large
+numbers of connections are expensive, so production deployments often use
+connection pooling and careful limits.
 
-- Process isolation improves fault containment.
-- One backend crash is less likely to corrupt another backend's private memory.
-- Shared memory is used deliberately for the data that must be shared.
-
-Interesting tradeoff:
-
-- Processes cost more than threads.
-- Very large connection counts need pooling or careful limits.
-- The design favors robustness and isolation over ultra-lightweight sessions.
-
-Connection to Codexion:
-
-- Threads share memory by default, so every shared field is a potential race.
-- PostgreSQL's design is a reminder that sharing less can make correctness
-  easier.
-- In Codexion, you cannot avoid threads, but you can still reduce shared mutable
-  state.
+Codexion cannot choose processes; the subject requires pthreads. But the lesson
+still matters. Shared memory is not free. Every shared field becomes part of
+your correctness story. If a field does not need to be shared, keep it local. If
+it must be shared, protect the truth it belongs to.
 
 Further reading:
 
 - PostgreSQL connection model: <https://www.postgresql.org/docs/18/connect-estab.html>
 
-## Apache HTTP Server: Multiple Concurrency Models
+## Apache HTTP Server: Concurrency As A Configurable Policy
 
-Apache httpd supports different Multi-Processing Modules. The `worker` MPM is a
-hybrid multi-process, multi-threaded server. Its documentation says this serves
-many requests with fewer resources than a process-only server while retaining
-some process-based stability:
-<https://httpd.apache.org/docs/current/en/mod/worker.html>
+Apache httpd supports different Multi-Processing Modules. The `prefork` model
+uses processes. The `worker` model uses multiple processes with multiple threads
+inside each process. The `event` model improves handling of keep-alive
+connections.
 
-Important decision:
+The `worker` documentation describes the hybrid process/thread model as a way to
+serve many requests with fewer resources than a process-only design while still
+retaining some process-level stability.
 
-- Apache made the concurrency model configurable.
-- `prefork` uses multiple processes.
-- `worker` uses multiple processes, each with multiple threads.
-- `event` further separates keep-alive connection handling from active request
-  processing.
+Source: <https://httpd.apache.org/docs/current/en/mod/worker.html>
 
-Why:
+Apache's important decision is not one specific model. It is that the model is a
+policy. Different modules, platforms, and deployments have different safety and
+scaling needs. Some code is not thread-safe, so a process-heavy model may be
+safer. Other deployments can use threads to reduce memory cost.
 
-- Different deployments have different safety and scalability needs.
-- Some modules historically were not thread-safe.
-- Threaded workers reduce memory use when thread safety is acceptable.
+This teaches a practical lesson: concurrency knobs are not cosmetic. More
+threads can increase throughput, but they also increase memory use, scheduling
+overhead, and the number of interleavings you must survive.
 
-Interesting tradeoff:
-
-- More threads can increase concurrency.
-- Too many threads increase memory use, scheduling overhead, and instability.
-- Apache exposes limits like `MaxRequestWorkers`, `ThreadsPerChild`, and
-  `ThreadLimit`.
-
-Connection to Codexion:
-
-- Your project has a fixed thread model: one coder equals one thread.
-- But you still choose internal concurrency structure: one global lock, per
-  dongle locks, central scheduler, per-dongle queues, monitor frequency.
-- Like Apache, every concurrency knob affects both performance and failure modes.
+Codexion gives you a fixed outer model: one coder is one thread. But inside that
+constraint you still choose policy. One global lock or several locks. One
+central scheduler or per-dongle queues. Frequent monitor scans or more precise
+deadline waits. Each choice moves complexity around.
 
 Further reading:
 
 - Apache `worker` MPM: <https://httpd.apache.org/docs/current/en/mod/worker.html>
 - Apache MPM common directives: <https://httpd.apache.org/docs/current/en/mod/mpm_common.html>
 
-## Kafka Broker: Separate Thread Pools For Separate Work
+## Kafka: Separate Thread Pools For Different Kinds Of Work
 
-Kafka brokers separate different kinds of work into configurable thread pools.
-The broker docs define:
+Kafka brokers separate network work from request processing work. Broker
+configuration includes network threads, I/O threads, and limits on queued
+requests.
 
-- `num.network.threads`: threads for receiving requests and sending responses.
-- `num.io.threads`: threads for processing requests, possibly including disk I/O.
-- `queued.max.requests`: queued data-plane requests before network threads block.
+Source: <https://kafka.apache.org/37/configuration/broker-configs/>
 
-Source:
-<https://kafka.apache.org/37/configuration/broker-configs/>
+The reason is that not all work has the same bottleneck. Receiving requests and
+sending responses stress the network path. Processing requests may involve disk,
+replication state, memory, and coordination. Putting all of that behind one
+undifferentiated worker pool would make bottlenecks harder to isolate.
 
-Important decision:
+Queues connect the stages. A queue absorbs bursts, but it also introduces a new
+truth: how much waiting is allowed? Kafka exposes limits because unbounded queues
+turn overload into memory growth and latency.
 
-- Kafka separates network handling from request processing.
-- It uses queues between stages.
-- Thread pool sizes are tunable and can be updated dynamically within limits.
-
-Why:
-
-- Network I/O and disk/request processing have different bottlenecks.
-- Queues absorb bursts and provide backpressure.
-- Separate pools make it easier to identify and tune bottlenecks.
-
-Interesting tradeoff:
-
-- Queues improve decoupling.
-- Queues also add latency and require capacity limits.
-- If processing threads are saturated, network threads may eventually block.
-
-Connection to Codexion:
-
-- A dongle wait heap is a queue with a scheduling policy.
-- `queued.max.requests` is similar in spirit to preventing unbounded request
-  buildup.
-- Your monitor is like an independent control loop watching deadlines while
-  workers do normal work.
+Codexion's heap is also a queue with policy. It is smaller than Kafka's request
+pipeline, but the reasoning is similar. A waiting structure must have an order,
+a limit or lifetime rule, and a clear owner. Otherwise waiting becomes invisible
+complexity.
 
 Further reading:
 
 - Kafka broker configs: <https://kafka.apache.org/37/configuration/broker-configs/>
 
-## libuv and Node.js: Event Loop Plus Worker Thread Pool
+## libuv And Node.js: Event Loop Plus Worker Pool
 
-libuv is the C library behind Node.js's event loop and async I/O model. Its
-thread pool is used for work that would otherwise block the loop, such as file
-system operations and DNS helpers. The docs say the pool is global, shared
-across event loops, defaults to size 4, and can be changed with
-`UV_THREADPOOL_SIZE`:
-<https://docs.libuv.org/en/stable/threadpool.html>
+Node.js is known for its event loop, and libuv is the C library that provides
+much of that machinery. Many operations can be handled asynchronously by the
+event loop. Some operations, such as filesystem work and some DNS helpers, would
+block on many systems. libuv moves those operations to a bounded thread pool.
 
-Important decision:
+The libuv documentation says the thread pool is global, shared across event
+loops, defaults to size 4, and can be configured with `UV_THREADPOOL_SIZE`.
 
-- Keep the main event loop responsive.
-- Move selected blocking operations to a bounded worker pool.
+Source: <https://docs.libuv.org/en/stable/threadpool.html>
 
-Why:
+This is a hybrid decision. Use an event loop where waiting can be represented as
+events. Use worker threads where the operation would block the loop. Keep the
+pool bounded so the program does not create unlimited threads under load.
 
-- Most network I/O can be event-driven.
-- Some operations do not have a portable non-blocking OS interface.
-- A bounded pool avoids unlimited thread creation.
+The tradeoff is capacity. A small pool protects the process from excessive
+thread overhead, but it can become a bottleneck if many blocking operations
+arrive. A large pool may increase throughput for some workloads but can waste
+memory and create contention.
 
-Interesting tradeoff:
-
-- A small pool protects memory and scheduling overhead.
-- A too-small pool can become a bottleneck for file/DNS-heavy workloads.
-- A too-large pool may waste memory and increase contention.
-
-Connection to Codexion:
-
-- Your coder threads should not block while holding shared locks.
-- If a task may wait, release the mutex first or use a condition variable.
-- Bounded concurrency is a design tool, not a limitation by accident.
+Codexion's lesson is direct: bounded concurrency is design, not weakness. The
+number of coders, dongles, queues, and waiters defines what the system can do.
+When a thread cannot proceed, it should wait in a controlled way rather than
+creating more uncontrolled activity.
 
 Further reading:
 
 - libuv thread pool: <https://docs.libuv.org/en/stable/threadpool.html>
 - libuv overview: <https://docs.libuv.org/en/stable/>
 
-## Java ForkJoinPool: Work Stealing For Recursive Tasks
+## Java ForkJoinPool: Local Queues And Work Stealing
 
-Java's `ForkJoinPool` is an executor designed for tasks that split into smaller
-tasks. Its documentation says it uses work stealing: worker threads try to find
-and execute tasks created by other active tasks:
-<https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ForkJoinPool.html>
+Java's `ForkJoinPool` is designed for tasks that split into smaller tasks.
+Worker threads keep local work queues. When a worker runs out of work, it can
+steal from another worker.
 
-Important decision:
+Source: <https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ForkJoinPool.html>
 
-- Give workers local queues.
-- Let idle workers steal from busy workers.
-- Default target parallelism is based on available processors.
+The scarce resource here is CPU execution time. The challenge is load balance:
+recursive tasks do not always divide evenly. A single central queue would create
+contention. Local queues preserve locality, and stealing lets idle workers help
+where work remains.
 
-Why:
+This design is excellent for CPU-bound fork/join problems. It is less natural
+for arbitrary blocking I/O unless blocking is managed carefully, because a
+blocked worker is not helping execute CPU work.
 
-- Recursive parallel tasks create uneven work.
-- Local queues reduce contention.
-- Stealing balances load without forcing every operation through one global
-  queue.
-
-Interesting tradeoff:
-
-- Work stealing is excellent for CPU-bound fork/join workloads.
-- Blocking I/O inside pool tasks can reduce effectiveness unless explicitly
-  managed.
-
-Connection to Codexion:
-
-- A heap scheduler and a work-stealing scheduler solve different problems.
-- Codexion needs fairness/deadline ordering for scarce resources, not just CPU
-  load balancing.
-- This is why FIFO/EDF is more relevant than "whatever thread is free".
+Codexion needs a different scheduler because its scarce resource is not CPU
+work. The scarce resources are dongles with cooldown and deadlines. Work
+stealing asks "which worker needs more tasks?" Codexion asks "which waiting
+coder should receive this scarce resource?" That is why FIFO and EDF matter more
+than simple load balancing.
 
 Further reading:
 
 - Java `ForkJoinPool`: <https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ForkJoinPool.html>
 
-## Erlang/BEAM: Lightweight Processes And Message Passing
+## Erlang/BEAM: Concurrency Without Shared Mutable State
 
-Erlang was designed for massive concurrency. Its processes are lightweight,
-cheap to create and terminate, and communicate by message passing:
-<https://www2.erlang.org/documentation/doc-15.0/doc/system/ref_man_processes.html>
+Erlang was designed for systems with many concurrent activities. Erlang
+processes are lightweight and communicate by message passing.
 
-Important decision:
+Source: <https://www2.erlang.org/documentation/doc-15.0/doc/system/ref_man_processes.html>
 
-- Erlang processes do not share normal mutable memory.
-- Communication happens by sending messages to process mailboxes.
-- Failures are often handled by supervision trees rather than shared-state
-  recovery.
+The important decision is that normal Erlang processes do not share mutable
+memory the way pthreads do. One process sends a message. Another receives it in
+a mailbox. This removes many data races by construction because there is no
+ordinary shared variable for two processes to mutate at the same time.
 
-Why:
+The tradeoff is that you must design communication protocols. Mailboxes can grow
+if producers outrun consumers. Message ordering and backpressure become central
+questions.
 
-- Telecom systems need many independent concurrent activities.
-- Isolation makes fault recovery easier.
-- Message passing reduces data races by construction.
-
-Interesting tradeoff:
-
-- Message passing avoids many shared-memory bugs.
-- It requires designing protocols and mailbox behavior carefully.
-- Backpressure and mailbox growth become important concerns.
-
-Connection to Codexion:
-
-- Codexion uses pthreads, so shared memory is unavoidable.
-- But you can borrow the idea of explicit communication: coder threads update
-  protected state; condition variables notify waiters; the monitor observes and
-  stops the system.
+Codexion uses pthreads, so shared memory is unavoidable. But you can still
+borrow the discipline: make communication explicit. A coder updates protected
+state. A condition variable notifies waiters. The monitor sets `sim->stop` and
+broadcasts. Treat those transitions as protocol messages inside shared memory.
 
 Further reading:
 
 - Erlang processes: <https://www2.erlang.org/documentation/doc-15.0/doc/system/ref_man_processes.html>
 
-## What These Cases Teach For Codexion
+## The Shared Lesson
 
-Real systems do not use threads blindly. They choose concurrency models based on
-the resource being protected:
+These systems look different because they protect different worlds.
 
-- CPU-bound work often benefits from worker pools and work stealing.
-- I/O-heavy servers often use event loops.
-- Safety-sensitive systems may prefer processes or message passing.
-- Systems with scarce resources need queues, limits, and fairness policies.
-- Systems with deadlines need monitors and scheduling rules.
+Go protects cheap logical concurrency over expensive OS threads. NGINX protects
+worker responsiveness across many mostly-idle connections. PostgreSQL protects
+isolation and fault containment. Apache exposes concurrency policy because
+deployments differ. Kafka separates work by bottleneck and uses queues for
+pressure. libuv keeps an event loop responsive with a bounded worker pool. Java
+ForkJoinPool balances CPU work. Erlang avoids shared mutable state through
+message passing.
 
-For Codexion, the closest lessons are:
+Codexion is smaller, but the same thinking applies. Your world has scarce
+dongles, cooldown history, waiting coders, deadlines, and a printed history.
+Choose your locks, queues, condition variables, and monitor behavior to protect
+that world.
 
-- Treat dongles as scarce resources.
-- Treat wait queues as scheduler-owned data structures.
-- Protect invariants, not random variables.
-- Keep mutex-held sections short.
-- Use condition variables for sleeping, not busy loops.
-- Make the monitor independent from worker progress.
-- Choose FIFO/EDF behavior deliberately and make it easy to explain.
+The mature question is never "should I use threads?" The mature question is:
+
+```text
+What resource is scarce, what truth must remain coherent, and what concurrency
+shape preserves that truth with the least unnecessary complexity?
+```
 
 ## Navigation
 

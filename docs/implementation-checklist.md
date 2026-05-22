@@ -1,81 +1,202 @@
 # Implementation Checklist
 
-Use this checklist while building Codexion.
+This checklist is not a separate theory. It is the previous documents turned
+into build order.
 
-## Parsing
+When you implement Codexion, try not to begin with threads. Begin with the
+world. Threads only make sense after the shared world has a shape.
 
-- Accept exactly 8 arguments after the program name.
-- Reject negative numbers.
-- Reject non-integers.
-- Reject zero if your interpretation requires strictly positive values.
-- Reject scheduler values other than `fifo` and `edf`.
-- Store time values in a type large enough for millisecond arithmetic.
+## 1. Define The World
 
-## Initialization
+First, parse the arguments and build a valid simulation model.
 
-- Allocate coders.
-- Allocate dongles.
-- Initialize all mutexes.
-- Initialize all condition variables.
-- Initialize wait queues/heaps.
-- Set every coder's initial `last_compile_start` to simulation start.
-- Set every dongle as free and not cooling.
+The program should accept exactly the required arguments, reject invalid
+integers, reject an invalid scheduler, and store time values in a type that is
+safe for millisecond arithmetic. If bad input enters the model, later
+concurrency bugs become harder to diagnose.
 
-## Threads
+Then allocate the main objects:
 
-- Create one thread per coder.
-- Create one monitor thread.
-- Join all threads before cleanup.
-- Ensure threads can exit when `sim->stop` becomes true.
+```text
+simulation
+coders
+dongles
+wait queues or heaps
+mutexes
+condition variables
+```
 
-## Dongles
+At the end of initialization, the world should already be coherent, even before
+threads exist:
 
-- Protect dongle state with mutexes.
-- Enforce at most one owner per dongle.
-- Enforce cooldown after release.
-- Do not grant a cooling dongle before `cooldown_until`.
-- Use the selected scheduler to choose among waiting requests.
+```text
+every coder has an id
+every coder has an initial last_compile_start
+every dongle is unowned
+every dongle is not cooling
+every queue is empty
+sim->stop is false
+```
 
-## Scheduler
+This gives the threads a stable reality to enter.
 
-- Implement a min-heap priority queue.
-- FIFO comparator uses arrival order.
-- EDF comparator uses burnout deadline.
-- Add deterministic tiebreakers.
-- Remove stale/canceled requests if your design can create them.
+## 2. Create Actors Only After Their Memory Is Stable
 
-## Monitor
+Once the shared world exists, create one thread per coder and one monitor thread.
+Pass each coder thread a stable pointer, usually `&sim->coders[i]`, not the
+address of a loop variable.
 
-- Detect burnout from `last_compile_start + time_to_burnout`.
-- Print burnout within 10 ms.
-- Stop the simulation exactly once.
-- Wake blocked coder/scheduler waits after stop.
+The lifetime should stay clear:
 
-## Logging
+```text
+initialize everything
+create threads
+let them run
+set stop when the simulation ends
+join every thread
+destroy synchronization
+free memory
+```
 
-- Protect output with a mutex.
-- Print timestamps in milliseconds since simulation start.
-- Do not interleave messages.
-- Do not print normal state messages after stop.
-- Print exactly one burnout message.
+Joining is not optional cleanup. It is the point where the main thread knows no
+worker can still touch the shared world.
 
-## Cleanup
+## 3. Protect Resource Transitions
 
-- Free all allocated memory.
-- Destroy all mutexes.
-- Destroy all condition variables.
-- Avoid destroying synchronization objects before all users have exited.
+The first deep implementation problem is dongle ownership.
 
-## Defense Questions To Practice
+A correct dongle transition preserves this truth:
 
-- Why can a data race happen even on an `int`?
-- What invariant does your main mutex protect?
-- Why must `pthread_cond_wait` use a `while` loop?
-- How does your implementation avoid deadlock?
-- How does FIFO differ from EDF in your heap comparator?
-- How do you enforce dongle cooldown?
-- How does the monitor guarantee burnout detection timing?
-- What happens when there is only one coder?
+```text
+a dongle has at most one owner, and a coder compiles only with two legal dongles
+```
+
+That transition should happen under the mutex that protects dongle state,
+cooldown state, queue state, and stop state. Do not protect only the assignment.
+Protect the decision that makes the assignment correct.
+
+When releasing a dongle, do not immediately treat it as reusable. Set its
+cooldown deadline:
+
+```text
+cooldown_until = now + dongle_cooldown
+```
+
+From then on, any acquisition logic must treat the dongle as unavailable until
+that time has passed.
+
+## 4. Add Waiting Without Busy Waiting
+
+If a coder cannot proceed, it should not spin in a loop. It should wait on a
+condition variable while the real condition remains false.
+
+The pattern is:
+
+```text
+lock
+while cannot proceed and simulation has not stopped:
+    condition-wait
+perform the state transition if still allowed
+unlock
+```
+
+Every waiting predicate should include `sim->stop`, otherwise a coder can remain
+asleep after the monitor ends the simulation.
+
+Whenever a thread changes shared state that may unblock another thread, it
+should broadcast on the relevant condition variable after the state change.
+
+## 5. Give Waiting A Scheduler
+
+After waiting works, make it lawful.
+
+Each request needs enough information for the active policy:
+
+```text
+coder id
+arrival time
+burnout deadline
+tie-break sequence
+```
+
+The heap should expose the current best request. For FIFO, best means earliest
+arrival. For EDF, best means earliest deadline.
+
+Be careful with stale requests. If your design allows a request to become
+invalid because a coder stopped waiting, the scheduler must detect and discard
+it. If your design prevents stale requests entirely, be ready to explain how.
+
+The scheduler's job is to change shared state so the chosen coder's waiting
+condition becomes true. The condition variable wakes threads; the scheduler
+decides which thread has a reason to continue.
+
+## 6. Add The Monitor
+
+The monitor protects the meaning of time.
+
+For each coder, it computes:
+
+```text
+deadline = last_compile_start + time_to_burnout
+```
+
+If `now` passes that deadline, the monitor sets `sim->stop`, prints exactly one
+burnout message, and wakes blocked threads so they can exit.
+
+The monitor reads state that coder threads write, so those reads belong under
+the same synchronization discipline. The 10 ms logging requirement also means
+the monitor cannot sleep for long intervals between checks.
+
+## 7. Serialize The Log
+
+The log is the public history of the simulation. It needs two protections.
+
+First, printing itself must be serialized so lines do not mix. A log mutex is a
+simple solution.
+
+Second, the decision to print must respect simulation state. After stop, normal
+state messages should not continue. The burnout message should appear once.
+
+So logging is not merely:
+
+```text
+protect printf
+```
+
+It is:
+
+```text
+protect the consistency of the printed history
+```
+
+## 8. Clean Up In Reverse
+
+When all threads have exited, destroy what you initialized and free what you
+allocated.
+
+The order matters. Do not destroy a mutex or condition variable while a thread
+could still use it. Do not free coders, dongles, or queues before joining the
+threads that received pointers to them.
+
+## Defense Questions
+
+These are the questions that prove you understand the implementation:
+
+```text
+What shared truth does your main mutex protect?
+Where can a coder sleep, and what wakes it?
+Why does every condition wait use while instead of if?
+How do you prevent a coder from holding one dongle forever?
+What exactly is stored in a scheduler request?
+How does FIFO choose differently from EDF?
+How is dongle cooldown represented?
+Who owns the burnout log message?
+What happens after sim->stop becomes true?
+What is special about the one-coder case?
+```
+
+If you can answer these from your own code, the project is no longer a pile of
+pthread calls. It is a designed concurrent system.
 
 ## Navigation
 
