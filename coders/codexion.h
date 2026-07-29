@@ -6,9 +6,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <sys/time.h>
 #include <string.h>
+
+#include <sys/time.h>
 #include <limits.h>
+#include <errno.h>
 
 /*
 Allowed functions:
@@ -86,6 +88,9 @@ typedef struct s_coder
 	int				right_dongle;
 }	t_coder;
 
+/**
+ * All dongle state is protected exclusively by sim->mutex.
+ */
 typedef struct s_dongle
 {
 	int		id;
@@ -134,10 +139,47 @@ struct s_sim
 	int				stop;
 };
 
+typedef enum e_opcode
+{
+    LOCK,
+    UNLOCK,
+    INIT,
+    DESTROY,
+    CREATE,
+    JOIN,
+    INIT_COND,
+    WAIT,
+    TIMEDWAIT,
+    BROADCAST,
+    DESTROY_COND,
+}	t_opcode;
+
+typedef enum e_time_code
+{
+    SECONDS,
+    MILLISECONDS,
+    MICROSECONDS
+}   t_time_code;
+
+
 int		parse_arguments(int argc, char *argv[], t_params *params);
 
 void    print_usage(char *program);
 
 int   initialize_simulation(t_sim *sim, t_params *params);
+
+
+/** Safe utility functions for thread and mutex operations */
+int safe_mutex_handle(pthread_mutex_t *mutex, t_opcode opcode);
+int safe_thread_handle(pthread_t *thread, t_opcode opcode,
+    void *(*start_routine)(void *), void *arg);
+int safe_cond_handle(pthread_cond_t *cond, t_opcode opcode,
+    pthread_mutex_t *mutex, const struct timespec *abstime);
+
+/** Error handling functions */
+int handle_error(char *message, int error_code);
+int handle_mutex_error(int status, t_opcode opcode);
+int handle_thread_error(int status, t_opcode opcode);
+int handle_cond_error(int status, t_opcode opcode);
 
 #endif

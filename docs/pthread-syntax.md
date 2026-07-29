@@ -170,5 +170,5 @@ That is the role of synchronization.
 
 ## Navigation
 
-- Previous: [Project Model](./project-model.md)
+- Previous: [Dongle Assignment In `init_coder`](./dongle-assignment.md)
 - Next: [Synchronization Primitives](./synchronization.md)

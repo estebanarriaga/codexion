@@ -20,9 +20,10 @@ static void   init_coder(t_sim *sim, int i)
 	coder->state = STATE_WAITING;
 	coder->compile_count = 0;
 	coder->last_compile_start = sim->start_ms;
-	coder->left_dongle = i;
+    coder->left_dongle = i;
 	coder->right_dongle = (i + 1) % sim->params.number_of_coders;
-	pthread_cond_init(&coder->cond, NULL);
+    // TODO: We have to retrieve the status from all safe condition handles and propagate errors up to the caller instead of just returning void here.
+	safe_cond_handle(&coder->cond, INIT_COND, &sim->mutex, NULL);
 }
 
 static int    init_dongle(t_sim *sim, int i)
@@ -39,6 +40,7 @@ static int    init_dongle(t_sim *sim, int i)
 int   initialize_simulation(t_sim *sim, t_params *params)
 {
 	int     i;
+    int status;
 
 	memset(sim, 0, sizeof(*sim));
 	sim->params = *params;
@@ -51,12 +53,12 @@ int   initialize_simulation(t_sim *sim, t_params *params)
 			return (-1);
 	memset(sim->coders, 0, sizeof(t_coder) * params->number_of_coders);
 	memset(sim->dongles, 0, sizeof(t_dongle) * params->number_of_coders);
-	if (pthread_mutex_init(&sim->mutex, NULL) != 0)
-			return (-1);
-	if (pthread_mutex_init(&sim->log_mutex, NULL) != 0)
-			return (-1);
-	if (pthread_cond_init(&sim->sched_cond, NULL) != 0)
-			return (-1);
+	if (status = safe_mutex_handle(&sim->mutex, INIT) != 0)
+			return (status);
+	if (status = safe_mutex_handle(&sim->log_mutex, INIT) != 0)
+			return (status);
+	if (status = safe_cond_handle(&sim->sched_cond, INIT_COND, &sim->mutex, NULL) != 0)
+			return (status);
 	i = 0;
 	while (i < params->number_of_coders)
 	{

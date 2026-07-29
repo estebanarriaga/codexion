@@ -26,15 +26,16 @@ natural.
 ## Reading Path
 
 1. [Project Model](./project-model.md)
-2. [POSIX Threads Syntax](./pthread-syntax.md)
-3. [Synchronization Primitives](./synchronization.md)
-4. [Mutexes and Shared State](./mutexes.md)
-5. [Condition Variables](./condition-variables.md)
-6. [Schedulers: FIFO and EDF](./schedulers.md)
-7. [Monitor Thread and Timing](./monitor-and-timing.md)
-8. [Testing Concurrent Code](./testing.md)
-9. [Implementation Checklist](./implementation-checklist.md)
-10. [Real-World Threading Case Studies](./real-world-threading.md)
+2. [Dongle Assignment In `init_coder`](./dongle-assignment.md)
+3. [POSIX Threads Syntax](./pthread-syntax.md)
+4. [Synchronization Primitives](./synchronization.md)
+5. [Mutexes and Shared State](./mutexes.md)
+6. [Condition Variables](./condition-variables.md)
+7. [Schedulers: FIFO and EDF](./schedulers.md)
+8. [Monitor Thread and Timing](./monitor-and-timing.md)
+9. [Testing Concurrent Code](./testing.md)
+10. [Implementation Checklist](./implementation-checklist.md)
+11. [Real-World Threading Case Studies](./real-world-threading.md)
 
 The order matters. Each document assumes the previous one has already changed
 how you think about the problem.

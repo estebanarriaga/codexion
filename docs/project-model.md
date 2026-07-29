@@ -119,4 +119,4 @@ That is the line through the whole project.
 ## Navigation
 
 - Previous: [Codexion Learning Notes](./README.md)
-- Next: [POSIX Threads Syntax](./pthread-syntax.md)
+- Next: [Dongle Assignment In `init_coder`](./dongle-assignment.md)
