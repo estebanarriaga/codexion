@@ -1,16 +1,23 @@
 #include "codexion.h"
 
+/**
+ * Initializes the heap structure
+ */
 static int    init_heap(t_heap *heap, int capacity)
 {
-	heap->items = malloc(sizeof(t_request) * capacity);
-	if (heap->items == NULL)
+	heap->requests = malloc(sizeof(t_request) * capacity);
+	if (heap->requests == NULL)
 			return (-1);
 	heap->size = 0;
 	heap->capacity = capacity;
 	return (0);
 }
 
-static void   init_coder(t_sim *sim, int i)
+/**
+ * Initializes coder structure and its conditional variables
+ * @returns the status from the
+ */
+static int    init_coder(t_sim *sim, int i)
 {
 	t_coder *coder;
 
@@ -22,8 +29,7 @@ static void   init_coder(t_sim *sim, int i)
 	coder->last_compile_start = sim->start_ms;
     coder->left_dongle = i;
 	coder->right_dongle = (i + 1) % sim->params.number_of_coders;
-    // TODO: We have to retrieve the status from all safe condition handles and propagate errors up to the caller instead of just returning void here.
-	safe_cond_handle(&coder->cond, INIT_COND, &sim->mutex, NULL);
+	return (safe_cond_handle(&coder->cond, INIT_COND, &sim->mutex, NULL));
 }
 
 static int    init_dongle(t_sim *sim, int i)
@@ -50,19 +56,30 @@ int   initialize_simulation(t_sim *sim, t_params *params)
 	sim->coders = malloc(sizeof(t_coder) * params->number_of_coders);
 	sim->dongles = malloc(sizeof(t_dongle) * params->number_of_coders);
 	if (sim->coders == NULL || sim->dongles == NULL)
-			return (-1);
+	{
+		if (sim->coders)
+			free(sim->coders);
+		if (sim->dongles)
+			free(sim->dongles);
+		return (-1);
+	}
 	memset(sim->coders, 0, sizeof(t_coder) * params->number_of_coders);
 	memset(sim->dongles, 0, sizeof(t_dongle) * params->number_of_coders);
-	if (status = safe_mutex_handle(&sim->mutex, INIT) != 0)
+	status = safe_mutex_handle(&sim->mutex, INIT);
+	if (status != 0)
 			return (status);
-	if (status = safe_mutex_handle(&sim->log_mutex, INIT) != 0)
+	status = safe_mutex_handle(&sim->log_mutex, INIT);
+	if (status != 0)
 			return (status);
-	if (status = safe_cond_handle(&sim->sched_cond, INIT_COND, &sim->mutex, NULL) != 0)
+	status = safe_cond_handle(&sim->sched_cond, INIT_COND, &sim->mutex, NULL);
+	if (status != 0)
 			return (status);
 	i = 0;
 	while (i < params->number_of_coders)
 	{
-			init_coder(sim, i);
+			status = init_coder(sim, i);
+			if (status != 0)
+					return (status);
 			if (init_dongle(sim, i) == -1)
 					return (-1);
 			i++;

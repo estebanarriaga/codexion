@@ -58,3 +58,10 @@ coders/
 ├── time_utils.c        (gettimeofday wrappers → ms)
 └── Makefile
 ```
+
+## Dictionary
+
+**spinlock** - A synchronization primitive that causes a thread to busy-wait while attempting to acquire a lock, as opposed to blocking.
+**mutex** - A synchronization primitive that allows only one thread to access a shared resource at a time, blocking other threads until the lock is released.
+**condition variable** - A synchronization primitive that allows threads to wait for certain conditions to be met before proceeding, often used in conjunction with mutexes.
+**interlieved** - A term used to describe the execution of multiple threads or processes in a way that their operations are interspersed or alternated, rather than running sequentially.

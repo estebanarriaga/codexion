@@ -58,7 +58,7 @@ typedef struct s_request
 
 typedef struct s_heap
 {
-	t_request	*items;
+	t_request	*requests;
 	int			size;
 	int			capacity;
 }	t_heap;
@@ -122,6 +122,9 @@ struct s_sim
 	 */
 	long			sequence;
 	pthread_t		scheduler_thread;
+	/**
+	 * Monitors for burnout and sets sim->stop when all coders are done or one burns out.
+	 */
 	pthread_t		monitor_thread;
 	/**
 	 * Protects shared simulation truth: coders, dongles, queues, and stop.
@@ -167,7 +170,10 @@ int		parse_arguments(int argc, char *argv[], t_params *params);
 void    print_usage(char *program);
 
 int   initialize_simulation(t_sim *sim, t_params *params);
-
+int	create_coder_threads(t_sim *sim);
+int	wait_for_threads(t_sim *sim);
+long	gettime(t_time_code time_code);
+void	*coding_simulation(void *arg);
 
 /** Safe utility functions for thread and mutex operations */
 int safe_mutex_handle(pthread_mutex_t *mutex, t_opcode opcode);
