@@ -85,8 +85,8 @@ int handle_cond_error(int status, t_opcode opcode)
 {
     if (status == 0)
         return 0;
-    if ((opcode == WAIT || opcode == TIMEDWAIT) && status == ETIMEDOUT)
-        return (handle_error("The time specified by abstime to pthread_cond_timedwait() has passed.", status));
+    if (opcode == TIMEDWAIT && status == ETIMEDOUT)
+        return (ETIMEDOUT);
     else if (status == EINVAL)
         return (handle_error("The abstime argument specified a nanosecond value less than zero or greater than or equal to 1000 million.", status));
     else if (status == EOWNERDEAD)
