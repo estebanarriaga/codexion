@@ -4,11 +4,13 @@ CC = cc
 CFLAGS = -Wall -Wextra -Werror -pthread -Icoders
 UNSAFE_FLAGS = -pthread
 RM = rm -f
+RMDIR = rm -rf
 
 SRCS = coders/main.c coders/utils.c coders/parse.c coders/initialize.c \
-	coders/simulation.c coders/threads.c coders/utils/error.c \
-	coders/utils/handlers.c
-OBJS = $(SRCS:.c=.o)
+	coders/simulation.c coders/threads.c coders/heap.c coders/utils/error.c \
+	coders/utils/handlers.c coders/scheduler.c coders/monitor.c
+OBJS = $(patsubst %.c,dist/%.o,$(SRCS))
+LEGACY_OBJS = $(SRCS:.c=.o)
 
 all: $(NAME)
 
@@ -18,11 +20,13 @@ run: $(NAME)
 $(NAME): $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o $(NAME)
 
-%.o: %.c
+dist/%.o: %.c
+	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	$(RM) $(OBJS)
+	$(RMDIR) dist
+	$(RM) $(LEGACY_OBJS)
 
 fclean: clean
 	$(RM) $(NAME)

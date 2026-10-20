@@ -25,10 +25,10 @@ int	create_coder_threads(t_sim *sim)
 	int	i;
 	int	status;
 
+	i = 0;
 	sim->start_ms = gettime(MILLISECONDS);
 	if (sim->start_ms < 0)
 		return (-1);
-	i = 0;
 	while (i < sim->params.number_of_coders)
 	{
 		sim->coders[i].last_compile_start = sim->start_ms;

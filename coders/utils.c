@@ -8,6 +8,11 @@ void	print_usage(char *program)
 		"number_of_compiles_required dongle_cooldown scheduler\n", program);
 }
 
+/**
+ * Logging function that prints a message with the current timestamp and coder ID.
+ * The function uses a mutex to ensure that log messages are not interleaved when
+ * multiple threads are logging simultaneously.
+ */
 void	print_message(t_sim *sim, int id, char *message)
 {
 	size_t time;

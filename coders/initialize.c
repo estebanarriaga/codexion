@@ -27,7 +27,7 @@ static int    init_coder(t_sim *sim, int i)
 	coder->state = STATE_WAITING;
 	coder->compile_count = 0;
 	coder->last_compile_start = sim->start_ms;
-    coder->left_dongle = i;
+    coder->left_dongle = i; // 
 	coder->right_dongle = (i + 1) % sim->params.number_of_coders;
 	return (safe_cond_handle(&coder->cond, INIT_COND, &sim->mutex, NULL));
 }
@@ -50,7 +50,7 @@ int   initialize_simulation(t_sim *sim, t_params *params)
 
 	memset(sim, 0, sizeof(*sim));
 	sim->params = *params;
-	sim->start_ms = 0;
+	sim->start_ms = gettime(MILLISECONDS);
 	sim->sequence = 0;
 	sim->stop = 0;
 	sim->coders = malloc(sizeof(t_coder) * params->number_of_coders);

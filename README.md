@@ -21,21 +21,21 @@ loop:
   1. enqueue request into left_dongle.waitqueue
      wait on personal_cond until granted
      log "has taken a dongle"
-  
+
   2. enqueue request into right_dongle.waitqueue
      wait on personal_cond until granted
      log "has taken a dongle"
-  
+
   3. record last_compile_start = now()
      log "is compiling"
      usleep(time_to_compile)
      compile_count++
-  
+
   4. release both dongles
      → set state = COOLING, record cooldown_until
      → signal dongle's available cond
      → a background mechanism or the next waiter handles cooldown
-  
+
   5. log "is debugging" → usleep(time_to_debug)
   6. log "is refactoring" → usleep(time_to_refactor)
   7. check sim.stop → if set, exit
@@ -65,3 +65,8 @@ coders/
 **mutex** - A synchronization primitive that allows only one thread to access a shared resource at a time, blocking other threads until the lock is released.
 **condition variable** - A synchronization primitive that allows threads to wait for certain conditions to be met before proceeding, often used in conjunction with mutexes.
 **interlieved** - A term used to describe the execution of multiple threads or processes in a way that their operations are interspersed or alternated, rather than running sequentially.
+
+## (Reference test)
+
+  Kerrisk, Michael. The Linux Programming Interface: A Linux and UNIX System Programming Handbook. No Starch Press, 2010.
+

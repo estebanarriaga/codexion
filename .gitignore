@@ -1,8 +1,10 @@
 # vscode
 .vscode
+.agents
 
 # object files
 build
+dist
 
 # tests are not submitted
 tests
@@ -19,3 +21,6 @@ tmp
 
 */**.o
 *.o
+
+docs/
+lessons/
