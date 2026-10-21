@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   codexion.h                                         :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: estarria <estarria@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/10/21 14:21:04 by estarria          #+#    #+#             */
+/*   Updated: 2026/10/21 14:21:05 by estarria         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #ifndef CODEXION_H
 # define CODEXION_H 1
 
@@ -113,6 +125,7 @@ void	print_usage(char *program);
 int		initialize_simulation(t_sim *sim, t_params *params);
 long	gettime(t_time_code time_code);
 void	*coding_simulation(void *arg);
+int		wait_until_grant(t_coder *coder);
 void	*scheduler_thread(void *arg);
 void	*monitor_thread(void *arg);
 

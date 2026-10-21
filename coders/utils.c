@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   utils.c                                            :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: estarria <estarria@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/10/21 14:21:50 by estarria          #+#    #+#             */
+/*   Updated: 2026/10/21 14:21:53 by estarria         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 
 #include "codexion.h"
 
@@ -24,7 +36,6 @@ void	print_message(t_sim *sim, int id, char *message)
 	pthread_mutex_unlock(&sim->log_mutex);
 }
 
-// int gettimeofday(struct timeval *tv, struct timezone *tz);
 /**
  * time_code -> SECONDS MILLISECONDS MICROSECONDS
  * gettime returns the current time in milliseconds.

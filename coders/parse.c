@@ -1,3 +1,14 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   parse.c                                            :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: estarria <estarria@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/10/21 12:32:09 by estarria          #+#    #+#             */
+/*   Updated: 2026/10/21 12:32:30 by estarria         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
 
 #include "codexion.h"
 
@@ -9,7 +20,7 @@ static int	parse_positive_int(char *arg, int *value, int i)
 	if (result <= 0)
 	{
 		fprintf(stderr, "Error: argument %d (%s) must be a positive "
-				"integer between 1 and %d.\n", i + 1, arg, INT_MAX);
+			"integer between 1 and %d.\n", i + 1, arg, INT_MAX);
 		return (-1);
 	}
 	*value = (int)result;
