@@ -75,6 +75,7 @@ struct s_sim
 	t_params		params;
 	t_coder			*coders;
 	t_dongle		*dongles;
+	int				number_of_dongles;
 	long			start_ms;
 	long			sequence;
 	pthread_t		scheduler_thread;

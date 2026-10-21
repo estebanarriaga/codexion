@@ -91,11 +91,6 @@ int	heap_push_pair(t_heap *first, t_request first_request, t_heap *second,
 {
 	if (!heap_can_push(first, scheduler))
 		return (-1);
-	if (first == second)
-	{
-		heap_push_unchecked(first, first_request, scheduler);
-		return (0);
-	}
 	if (!heap_can_push(second, scheduler))
 		return (-1);
 	heap_push_unchecked(first, first_request, scheduler);
@@ -126,11 +121,6 @@ int	heap_pop_pair(t_heap *first, t_heap *second, const char *scheduler)
 {
 	if (!heap_can_pop(first, scheduler))
 		return (-1);
-	if (first == second)
-	{
-		heap_pop_unchecked(first, scheduler);
-		return (0);
-	}
 	if (!heap_can_pop(second, scheduler))
 		return (-1);
 	heap_pop_unchecked(first, scheduler);

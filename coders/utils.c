@@ -79,7 +79,7 @@ void	free_simulation(t_sim *sim)
 	int	i;
 
 	i = 0;
-	while (sim->dongles && i < sim->params.number_of_coders)
+	while (sim->dongles && i < sim->number_of_dongles)
 	{
 		free_heap(&sim->dongles[i].waiters);
 		i++;

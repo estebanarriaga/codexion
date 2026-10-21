@@ -6,7 +6,7 @@
 /*   By: estarria <estarria@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/10/20 17:47:37 by estarria          #+#    #+#             */
-/*   Updated: 2026/10/21 12:14:45 by estarria         ###   ########.fr       */
+/*   Updated: 2026/10/21 13:31:23 by estarria         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,16 +14,19 @@
 
 static int	allocate_arrays(t_sim *sim)
 {
+	sim->number_of_dongles = sim->params.number_of_coders;
+	if (sim->number_of_dongles == 1)
+		sim->number_of_dongles++;
 	sim->coders = malloc(sizeof(t_coder) * sim->params.number_of_coders);
 	if (sim->coders == NULL)
 		return (-1);
 	memset(sim->coders, 0,
 		sizeof(t_coder) * sim->params.number_of_coders);
-	sim->dongles = malloc(sizeof(t_dongle) * sim->params.number_of_coders);
+	sim->dongles = malloc(sizeof(t_dongle) * sim->number_of_dongles);
 	if (sim->dongles == NULL)
 		return (-1);
 	memset(sim->dongles, 0,
-		sizeof(t_dongle) * sim->params.number_of_coders);
+		sizeof(t_dongle) * sim->number_of_dongles);
 	return (0);
 }
 
@@ -51,7 +54,7 @@ static int	init_coder(t_sim *sim, int i)
 	coder->compile_count = 0;
 	coder->last_compile_start = sim->start_ms;
 	coder->left_dongle = i;
-	coder->right_dongle = (i + 1) % sim->params.number_of_coders;
+	coder->right_dongle = (i + 1) % sim->number_of_dongles;
 	return (safe_cond_handle(&coder->cond, INIT_COND, &sim->mutex, NULL));
 }
 
@@ -86,9 +89,10 @@ int	initialize_simulation(t_sim *sim, t_params *params)
 	if (status != 0)
 		return (status);
 	i = 0;
-	while (i < params->number_of_coders)
+	while (i < sim->number_of_dongles)
 	{
-		status = init_coder(sim, i);
+		if (i < params->number_of_coders)
+			status = init_coder(sim, i);
 		if (status != 0)
 			return (status);
 		if (init_dongle(sim, i) == -1)

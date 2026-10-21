@@ -6,7 +6,7 @@
 /*   By: estarria <estarria@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/10/19 10:58:36 by estarria          #+#    #+#             */
-/*   Updated: 2026/10/20 17:31:21 by estarria         ###   ########.fr       */
+/*   Updated: 2026/10/21 13:31:49 by estarria         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -38,7 +38,7 @@ static long	next_cooldown_deadline(t_sim *sim)
 	now = gettime(MILLISECONDS);
 	deadline = 0;
 	i = 0;
-	while (i < sim->params.number_of_coders)
+	while (i < sim->number_of_dongles)
 	{
 		dongle = &sim->dongles[i];
 		if (!heap_is_empty(&dongle->waiters) && dongle->owner_id == 0
@@ -53,7 +53,6 @@ static long	next_cooldown_deadline(t_sim *sim)
 /*
  * Grant both dongles only when the coder leads both queues and they are usable.
  * The caller holds sim->mutex across queue removal, assignment, and wakeup.
- * Aliased dongles need one queue removal; assigning their owner twice is safe.
  * Return zero on a grant, or -1 if no grant was made.
  */
 static int	try_grant(t_coder *coder)
