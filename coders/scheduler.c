@@ -76,7 +76,9 @@ static int	try_grant(t_coder *coder)
 			coder->sim->params.scheduler) != 0)
 		return (-1);
 	left->owner_id = coder->id;
+	print_message(coder->sim, coder->id, "has taken a dongle");
 	right->owner_id = coder->id;
+	print_message(coder->sim, coder->id, "has taken a dongle");
 	safe_cond_handle(&coder->cond, BROADCAST, NULL, NULL);
 	return (0);
 }

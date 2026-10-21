@@ -20,7 +20,7 @@ void	print_message(t_sim *sim, int id, char *message)
 	pthread_mutex_lock(&sim->log_mutex);
 	time = gettime(MILLISECONDS) - sim->start_ms;
 	if (!sim->stop)
-	printf("[%ld ms] Coder %d: %s\n", time, id, message);
+		printf("%ld %d %s\n", time, id, message);
 	pthread_mutex_unlock(&sim->log_mutex);
 }
 
