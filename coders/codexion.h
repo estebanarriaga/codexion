@@ -110,8 +110,6 @@ typedef enum e_time_code
 int		parse_arguments(int argc, char *argv[], t_params *params);
 void	print_usage(char *program);
 int		initialize_simulation(t_sim *sim, t_params *params);
-int		create_coder_threads(t_sim *sim);
-int		wait_for_threads(t_sim *sim);
 long	gettime(t_time_code time_code);
 void	*coding_simulation(void *arg);
 void	*scheduler_thread(void *arg);
@@ -135,5 +133,8 @@ int		handle_error(char *message, int error_code);
 int		handle_mutex_error(int status, t_opcode opcode);
 int		handle_thread_error(int status, t_opcode opcode);
 int		handle_cond_error(int status, t_opcode opcode);
+
+int		destroy_simulation(t_sim *sim, int status);
+void	free_simulation(t_sim *sim);
 
 #endif

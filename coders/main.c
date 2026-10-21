@@ -1,55 +1,55 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   main.c                                             :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: estarria <estarria@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2026/10/20 17:47:37 by estarria          #+#    #+#             */
+/*   Updated: 2026/10/21 12:17:00 by estarria         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
 
 #include "codexion.h"
 
-// main
-//    ├── initialize_simulation()
-//    ├── create coder threads
-//    ├── create scheduler thread
-//    ├── create monitor thread
-//    ├── join all threads
-//    └── cleanup
-int main(int argc, char *argv[])
+/* Create coder, scheduler, and monitor threads. */
+static int	start_simulation(t_sim *sim)
+{
+	int	status;
+	int	i;
+
+	i = 0;
+	while (i < sim->params.number_of_coders)
+	{
+		status = safe_thread_handle(&sim->coders[i].thread, CREATE,
+				coding_simulation, &sim->coders[i]);
+		if (status != 0)
+			return (status);
+		i++;
+	}
+	status = safe_thread_handle(&sim->scheduler_thread, CREATE,
+			scheduler_thread, sim);
+	if (status != 0)
+		return (status);
+	status = safe_thread_handle(&sim->monitor_thread, CREATE,
+			monitor_thread, sim);
+	return (status);
+}
+
+int	main(int argc, char *argv[])
 {
 	t_params	params;
 	t_sim		sim;
 	int			status;
 
+	status = 0;
 	if (parse_arguments(argc, argv, &params) == -1)
 		return (1);
-	(void)params;
-
-	// Initialize coders, dongles, and other necessary data structures here
 	status = initialize_simulation(&sim, &params);
 	if (status != 0)
-		return (status);
-
-	// Create threads for each coder and start the simulation
-	status = create_coder_threads(&sim);
+		return (destroy_simulation(&sim, status));
+	status = start_simulation(&sim);
 	if (status != 0)
-		return (status);
-
-	// TODO: Create simulation thread
-	status =  pthread_create(&sim.scheduler_thread, NULL, scheduler_thread, &sim);
-	if (status != 0)
-	{
-		fprintf(stderr, "Error creating simulation thread: %d\n", status);
-		return (status);
-	}
-	// TODO: Create monitor thread
-	status =  pthread_create(&sim.monitor_thread, NULL, monitor_thread, &sim);
-	if (status != 0)
-	{
-		fprintf(stderr, "Error creating monitor thread: %d\n", status);
-		return (status);
-	}
-
-	if (wait_for_threads(&sim) != 0)
-		return (1);
-	safe_thread_handle(&sim.monitor_thread, JOIN, NULL, NULL);
-	safe_thread_handle(&sim.scheduler_thread, JOIN, NULL, NULL);
-
-	// TODO: Clean up resources
-    // cleanup_resources(&sim);
-
-	return (0);
+		return (destroy_simulation(&sim, status));
+	return (destroy_simulation(&sim, status));
 }
