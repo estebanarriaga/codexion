@@ -7,7 +7,7 @@ RM = rm -f
 RMDIR = rm -rf
 
 SRCS = coders/main.c coders/utils.c coders/parse.c coders/initialize.c \
-	coders/simulation.c coders/dongles.c coders/heap.c \
+	coders/coders.c coders/dongles.c coders/heap.c \
 	coders/utils/error.c \
 	coders/utils/handlers.c coders/scheduler.c coders/monitor.c
 OBJS = $(patsubst %.c,dist/%.o,$(SRCS))
