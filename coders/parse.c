@@ -1,28 +1,17 @@
 
 #include "codexion.h"
 
-static int	parse_positive_int(char *arg, int *value)
+static int	parse_positive_int(char *arg, int *value, int i)
 {
-	long	result;
-	int		i;
-	int		digit;
+	int	result;
 
-	if (arg[0] == '\0')
-		return (-1);
-	result = 0;
-	i = 0;
-	while (arg[i] != '\0')
-	{
-		if (arg[i] < '0' || arg[i] > '9')
-			return (-1);
-		digit = arg[i] - '0';
-		if (result > (INT_MAX - digit) / 10)
-			return (-1);
-		result = result * 10 + digit;
-		i++;
-	}
+	result = atoi(arg);
 	if (result <= 0)
+	{
+		fprintf(stderr, "Error: argument %d (%s) must be a positive "
+				"integer between 1 and %d.\n", i + 1, arg, INT_MAX);
 		return (-1);
+	}
 	*value = (int)result;
 	return (0);
 }
@@ -52,12 +41,8 @@ int	parse_arguments(int argc, char *argv[], t_params *params)
 	i = 0;
 	while (i < 7)
 	{
-		if (parse_positive_int(argv[i + 1], fields[i]) == -1)
-		{
-			fprintf(stderr, "Error: argument %d (%s) must be a positive "
-				"integer between 1 and %d.\n", i + 1, argv[i + 1], INT_MAX);
+		if (parse_positive_int(argv[i + 1], fields[i], i) == -1)
 			return (-1);
-		}
 		i++;
 	}
 	if (strcmp(argv[8], "fifo") != 0 && strcmp(argv[8], "edf") != 0)
