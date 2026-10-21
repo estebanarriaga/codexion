@@ -29,7 +29,7 @@ typedef enum e_coder_state
 	STATE_DEBUGGING,
 	STATE_REFACTORING,
 	STATE_DONE
-}t_coder_state;
+}	t_coder_state;
 
 typedef struct s_sim	t_sim;
 
@@ -43,7 +43,7 @@ typedef struct s_params
 	int		time_to_refactor;
 	int		number_of_compiles_required;
 	int		dongle_cooldown;
-}t_params;
+}	t_params;
 
 typedef struct s_request
 {
@@ -51,28 +51,34 @@ typedef struct s_request
 	long	deadline_ms;
 	long	sequence;
 	int		coder_id;
-}t_request;
+}	t_request;
+
+typedef struct s_request_pair
+{
+	t_request	left;
+	t_request	right;
+}	t_request_pair;
 
 typedef struct s_heap
 {
 	t_request	*requests;
 	int			size;
 	int			capacity;
-}t_heap;
+}	t_heap;
 
 typedef struct s_coder
 {
 	pthread_t		thread;
 	pthread_cond_t	cond;
-	t_sim				*sim;
-	long				last_compile_start;
+	t_sim			*sim;
+	long			last_compile_start;
 	int				id;
 	t_coder_state	state;
 	int				compile_count;
 	int				request_pending;
 	int				left_dongle;
 	int				right_dongle;
-}t_coder;
+}	t_coder;
 
 typedef struct s_dongle
 {
@@ -80,7 +86,7 @@ typedef struct s_dongle
 	int		owner_id;
 	long	cooldown_until;
 	t_heap	waiters;
-}t_dongle;
+}	t_dongle;
 
 struct s_sim
 {
@@ -111,27 +117,28 @@ typedef enum e_opcode
 	TIMEDWAIT,
 	BROADCAST,
 	DESTROY_COND,
-}t_opcode;
+}	t_opcode;
 
 typedef enum e_time_code
 {
 	SECONDS,
 	MILLISECONDS,
 	MICROSECONDS
-}t_time_code;
+}	t_time_code;
 
 int		parse_arguments(int argc, char *argv[], t_params *params);
 void	print_usage(char *program);
 int		initialize_simulation(t_sim *sim, t_params *params);
 long	gettime(t_time_code time_code);
+int		wait_phase(t_sim *sim, long duration_ms);
 void	*coding_simulation(void *arg);
 int		wait_until_grant(t_coder *coder);
 void	*scheduler_thread(void *arg);
 void	*monitor_thread(void *arg);
 
 int		heap_is_empty(const t_heap *heap);
-int		heap_push_pair(t_heap *first, t_request first_request,
-			t_heap *second, t_request second_request, const char *scheduler);
+int		heap_push_pair(t_heap *first, t_heap *second,
+			t_request_pair requests, const char *scheduler);
 int		heap_peek(const t_heap *heap, t_request *request);
 int		heap_pop_pair(t_heap *first, t_heap *second,
 			const char *scheduler);

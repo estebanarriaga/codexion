@@ -1,41 +1,16 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   simulation.c                                       :+:      :+:    :+:   */
+/*   coders.c                                           :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: estarria <estarria@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/10/19 10:58:39 by estarria          #+#    #+#             */
-/*   Updated: 2026/10/21 13:07:13 by estarria         ###   ########.fr       */
+/*   Updated: 2026/10/21 14:34:55 by estarria         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "codexion.h"
-
-static int	wait_phase(t_sim *sim, long duration_ms)
-{
-	long	start;
-	long	now;
-	int		stopped;
-
-	start = gettime(MILLISECONDS);
-	if (start < 0)
-		return (0);
-	while (1)
-	{
-		safe_mutex_handle(&sim->mutex, LOCK);
-		stopped = sim->stop;
-		safe_mutex_handle(&sim->mutex, UNLOCK);
-		if (stopped)
-			return (0);
-		now = gettime(MILLISECONDS);
-		if (now < 0)
-			return (0);
-		if (now - start >= duration_ms)
-			return (1);
-		usleep(1000);
-	}
-}
 
 /* Release both dongles and start their cooldown while sim->mutex is held. */
 static void	release_both_dongles_locked(t_coder *coder)
@@ -122,7 +97,7 @@ void	*coding_simulation(void *arg)
 		if (!run_timed_phase(coder, STATE_DEBUGGING, "is debugging",
 				sim->params.time_to_debug))
 			break ;
-		if (!run_timed_phase(coder, STATE_REFACTORING, "is refractoring",
+		if (!run_timed_phase(coder, STATE_REFACTORING, "is refactoring",
 				sim->params.time_to_refactor))
 			break ;
 	}

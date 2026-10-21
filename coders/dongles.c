@@ -41,17 +41,16 @@ static int	owns_both_dongles_locked(t_coder *coder)
 /* Enqueue both requests atomically while sim->mutex is held. */
 static int	add_requests_locked(t_sim *sim, t_coder *coder)
 {
-	t_dongle	*left;
-	t_dongle	*right;
-	t_request	left_request;
-	t_request	right_request;
+	t_dongle		*left;
+	t_dongle		*right;
+	t_request_pair	requests;
 
 	left = &sim->dongles[coder->left_dongle];
 	right = &sim->dongles[coder->right_dongle];
-	left_request = create_request(coder);
-	right_request = create_request(coder);
-	return (heap_push_pair(&left->waiters, left_request,
-			&right->waiters, right_request, sim->params.scheduler));
+	requests.left = create_request(coder);
+	requests.right = create_request(coder);
+	return (heap_push_pair(&left->waiters, &right->waiters,
+			requests, sim->params.scheduler));
 }
 
 /* Reject stopped/done coders and notify the scheduler of a pending request. */
