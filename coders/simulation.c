@@ -138,7 +138,7 @@ static int	run_compile(t_coder *coder)
 	if (wait_until_grant(coder) == 0)
 		return (0);
 	print_message(sim, coder->id, "is compiling");
-	usleep(sim->params.time_to_compile * 1000);
+	usleep((unsigned long)sim->params.time_to_compile * 1000);
 	safe_mutex_handle(&sim->mutex, LOCK);
 	release_both_dongles_locked(coder);
 	coder->compile_count++;
