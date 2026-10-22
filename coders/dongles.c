@@ -22,7 +22,6 @@ static t_request	create_request(t_coder *coder)
 	request.arrival_ms = gettime(MILLISECONDS);
 	request.deadline_ms = coder->last_compile_start
 		+ sim->params.time_to_burnout;
-	request.sequence = sim->sequence++;
 	request.coder_id = coder->id;
 	return (request);
 }

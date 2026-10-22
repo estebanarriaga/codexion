@@ -49,7 +49,6 @@ typedef struct s_request
 {
 	long	arrival_ms;
 	long	deadline_ms;
-	long	sequence;
 	int		coder_id;
 }	t_request;
 
@@ -94,7 +93,6 @@ struct s_sim
 	t_coder			*coders;
 	t_dongle		*dongles;
 	long			start_ms;
-	long			sequence;
 	pthread_t		scheduler_thread;
 	pthread_t		monitor_thread;
 	pthread_mutex_t	mutex;

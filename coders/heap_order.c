@@ -17,13 +17,8 @@ static int	request_precedes(t_request first, t_request second,
 		const char *scheduler)
 {
 	if (strcmp(scheduler, "fifo") == 0)
-	{
-		if (first.arrival_ms != second.arrival_ms)
-			return (first.arrival_ms < second.arrival_ms);
-	}
-	else if (first.deadline_ms != second.deadline_ms)
-		return (first.deadline_ms < second.deadline_ms);
-	return (first.sequence < second.sequence);
+		return (first.arrival_ms < second.arrival_ms);
+	return (first.deadline_ms < second.deadline_ms);
 }
 
 static void	swap_requests(t_request *first, t_request *second)
