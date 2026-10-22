@@ -8,7 +8,8 @@ RMDIR = rm -rf
 
 SRCS = coders/main.c coders/utils.c coders/parse.c coders/initialize.c \
 	coders/coders.c coders/dongles.c coders/heap.c \
-	coders/cleanup.c coders/time.c coders/heap_order.c \
+	coders/cleanup.c coders/time.c \
+	coders/heap_order.c \
 	coders/heap_push.c coders/heap_pop.c \
 	coders/utils/error.c \
 	coders/utils/handlers.c coders/scheduler.c coders/monitor.c

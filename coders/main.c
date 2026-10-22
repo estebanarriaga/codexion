@@ -6,7 +6,7 @@
 /*   By: estarria <estarria@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/10/20 17:47:37 by estarria          #+#    #+#             */
-/*   Updated: 2026/10/21 12:17:00 by estarria         ###   ########.fr       */
+/*   Updated: 2026/10/22 10:34:21 by estarria         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -49,7 +49,5 @@ int	main(int argc, char *argv[])
 	if (status != 0)
 		return (destroy_simulation(&sim, status));
 	status = start_simulation(&sim);
-	if (status != 0)
-		return (destroy_simulation(&sim, status));
 	return (destroy_simulation(&sim, status));
 }
