@@ -6,7 +6,7 @@
 /*   By: estarria <estarria@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/10/21 14:21:04 by estarria          #+#    #+#             */
-/*   Updated: 2026/10/21 14:21:05 by estarria         ###   ########.fr       */
+/*   Updated: 2026/10/21 18:43:45 by estarria         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -93,7 +93,6 @@ struct s_sim
 	t_params		params;
 	t_coder			*coders;
 	t_dongle		*dongles;
-	int				number_of_dongles;
 	long			start_ms;
 	long			sequence;
 	pthread_t		scheduler_thread;

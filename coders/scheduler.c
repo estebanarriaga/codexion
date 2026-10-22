@@ -15,13 +15,22 @@
 /*
  * Check ownership and cooldown for both dongles under sim->mutex.
  */
-static int	both_dongles_available(t_dongle *left, t_dongle *right)
+static int	reserve_dongles(t_coder *coder, t_dongle *left,
+		t_dongle *right)
 {
 	long	now;
 
 	now = gettime(MILLISECONDS);
-	return (left->owner_id == 0 && right->owner_id == 0
-		&& left->cooldown_until <= now && right->cooldown_until <= now);
+	if (left->owner_id != 0 || right->owner_id != 0
+		|| left->cooldown_until > now || right->cooldown_until > now)
+		return (0);
+	left->owner_id = coder->id;
+	print_message(coder->sim, coder->id, "has taken a dongle");
+	if (right->owner_id != 0)
+		return (0);
+	right->owner_id = coder->id;
+	print_message(coder->sim, coder->id, "has taken a dongle");
+	return (1);
 }
 
 /*
@@ -38,7 +47,7 @@ static long	next_cooldown_deadline(t_sim *sim)
 	now = gettime(MILLISECONDS);
 	deadline = 0;
 	i = 0;
-	while (i < sim->number_of_dongles)
+	while (i < sim->params.number_of_coders)
 	{
 		dongle = &sim->dongles[i];
 		if (!heap_is_empty(&dongle->waiters) && dongle->owner_id == 0
@@ -69,15 +78,12 @@ static int	try_grant(t_coder *coder)
 		return (-1);
 	if (left_request.coder_id != coder->id
 		|| right_request.coder_id != coder->id
-		|| !both_dongles_available(left, right))
+		|| !reserve_dongles(coder, left, right))
 		return (-1);
 	if (heap_pop_pair(&left->waiters, &right->waiters,
 			coder->sim->params.scheduler) != 0)
 		return (-1);
-	left->owner_id = coder->id;
-	print_message(coder->sim, coder->id, "has taken a dongle");
-	right->owner_id = coder->id;
-	print_message(coder->sim, coder->id, "has taken a dongle");
+	coder->state = STATE_COMPILING;
 	safe_cond_handle(&coder->cond, BROADCAST, NULL, NULL);
 	return (0);
 }
